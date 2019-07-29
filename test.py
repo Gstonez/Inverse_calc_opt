@@ -30,6 +30,8 @@ Output:
 result : array
       optimal decision variables
 """
+import os
+import sys
 import copy
 import math
 import time
@@ -41,6 +43,14 @@ import matplotlib.pyplot as plt
 
 
 __author__ = 'ru'
+sys.path.append(os.path.dirname(__file__))
+# 得到当前程序所在的路径
+__dirname__ = os.path.dirname(__file__)
+
+
+def get_path(path):
+    """Splice to get the data storage path"""
+    return os.path.join(__dirname__, path)
 
 
 def caculate_concentration(x, y,
@@ -75,6 +85,10 @@ def generate_data(x_interval=200, y_interval=250):
 
 global data
 data = generate_data()
+global func
+global scaling_factor
+global cross_rate
+global F_category
 
 
 def likelihood(iterator_x, iterator_y, iterator_q, scale=0.01):
@@ -115,7 +129,7 @@ class GAIndividual:
 
 class GeneticAlgorithm:
 
-    def __init__(self, sizepop, vardim, bound, MAXGEN, params):
+    def __init__(self, sizepop, vardim, bound, MAXGEN, params, cross_num, selec_num):
         """
         :param sizepop:  population size
         :param vardim:  dimension of variable
@@ -132,10 +146,12 @@ class GeneticAlgorithm:
         self.population = []
         self.fitness = np.zeros((self.sizepop, 1))
         self.trace = np.zeros((self.MAXGEN, 2))
+        self.cross_num = cross_num
+        self.selec_num = selec_num
 
     def initialize(self):
         """Initialize the individual"""
-        for i in range(self.sizepop):
+        for _ in range(self.sizepop):
             individual = GAIndividual(self.vardim, self.bound)
             individual.generate()
             self.population.append(individual)
@@ -162,17 +178,42 @@ class GeneticAlgorithm:
 
         while (self.t < self.MAXGEN - 1):
             self.t += 1
-            self.selection_operation()  # 轮盘赌注选择
-            # self.linear_ranking_operation()  # 线性排序选择
-            # self.exponential_ranking_operation()  # 指数排序选择
-            # self.tournament_selection_operation()  # 锦标赛选择
-            # self.crossover_operation()  # 线性交叉
-            # self.simulated_binary_crossover_operation()  # 模拟二进制交叉SBX
-            # self.differential_evolution_operation()  # 差分进化DE（有三种类型可选）
-            # self.blend_crossover_operation()  # 混合交叉BLX-α
-            self.center_of_mass_crossover_operation()  # 质心交叉CMX
-            # self.simplex_crossover_operation()  # 一种简单型交叉SPX
-            self.simplex_crossover_operation1()  # 另一种简单型交叉SPX（包含了一点选择）
+            if F_category == 0:  # 向上开口抛物线
+                F = 0.5 * ((self.t - 1) / self.MAXGEN) ** 2 - 0.5 * (2 * (self.t - 1) / self.MAXGEN) + 0.9
+            elif F_category == 1:  # 指数形式
+                lamda = np.exp(1 - self.MAXGEN / (self.MAXGEN + 1 -self.t))
+                F = 0.4 * 2 ** lamda
+            elif F_category == 2:  # 惯性
+                F = 0.4 + ((self.MAXGEN - self.t + 1) / self.MAXGEN) * 0.5
+            else:  # 向下开口抛物线
+                F = -0.5 * ((self.t - 1) / self.MAXGEN) ** 2 + 0.9
+            if self.selec_num == 1:
+                self.selection_operation()  # 轮盘赌注选择
+            elif self.selec_num == 2:
+                self.linear_ranking_operation()  # 线性排序选择
+            elif self.selec_num == 3:
+                self.exponential_ranking_operation()  # 指数排序选择
+            elif self.selec_num == 4:
+                self.tournament_selection_operation()  # 锦标赛选择
+            if self.cross_num == 1:
+                self.crossover_operation()  # 线性交叉
+            elif self.cross_num == 2:
+                self.simulated_binary_crossover_operation()  # 模拟二进制交叉SBX
+            elif self.cross_num == 3:
+                self.differential_evolution_operation(option=1, F=F, CR=cross_rate)  # DE/rand/1
+                # print(F)
+            elif self.cross_num == 4:
+                self.differential_evolution_operation(option=2)  # DE/current-to-best/1
+            elif self.cross_num == 5:
+                self.differential_evolution_operation(option=3)  # DE/best/1
+            elif self.cross_num == 6:
+                self.blend_crossover_operation()  # 混合交叉BLX-α
+            elif self.cross_num == 7:
+                self.center_of_mass_crossover_operation()  # 质心交叉CMX
+            elif self.cross_num == 8:
+                self.simplex_crossover_operation()  # 一种简单型交叉SPX
+            elif self.cross_num == 9:
+                self.simplex_crossover_operation1()  # 另一种简单型交叉SPX（包含了一点选择）
             self.mutation_operation()  # 突变
             self.evaluate()
 
@@ -318,10 +359,10 @@ class GeneticAlgorithm:
         -------------------------------------------------------
         """
         newpop = []
-        for i in range(self.sizepop):
+        for _ in range(self.sizepop):
             index = np.random.choice(self.sizepop, n, replace=False)  # 不重复选择
             temp_fitness = self.fitness[index]
-            for j in range(0, m):  # 一次竞赛选出m个优胜者
+            for _ in range(0, m):  # 一次竞赛选出m个优胜者
                 best_index = np.argmax(temp_fitness)
                 newpop.append(self.population[index[best_index]])
                 temp_fitness = np.delete(temp_fitness, [best_index])  # 去除被选择索引
@@ -446,7 +487,7 @@ class GeneticAlgorithm:
         -------------------------------------------------------
         """
         newpop = []
-        for i in range(0, self.sizepop, 2):
+        for _ in range(0, self.sizepop, 2):
             index = np.random.choice(self.sizepop, 2, replace=False)
             parents = np.array(self.population)[index]
             center = np.zeros((self.vardim))
@@ -653,6 +694,25 @@ class GeneticAlgorithm:
 
 if __name__ == '__main__':
     bound = [[0, 1000], [-500, 500], [0, 20000]]
-    demo = GeneticAlgorithm(100, 3, bound, 500, [0.6, 0.7, 0.7])
-    result = demo.solve()
-    print(f"Output result is {result}")
+    maxgen = [1000]
+    popsize = [40]
+    for f in range(2, 3):  # DE/rand/1缩放因子
+        F_category = f
+        for c_f in np.arange(0.6, 1, 0.6):  # DE/rand/1交叉率
+            cross_rate = c_f
+            crossover_list = [3]  # 交叉算子序列表
+            for c_n in crossover_list:  # 遍历交叉算子
+                for s_n in range(1, 2):  # 遍历选择算子
+                    for size in popsize:  # 遍历种群规模
+                        for gen in maxgen:  # 遍历迭代次数
+                            final_result = []
+                            # for i in range(20):
+                            for i in range(2): 
+                                demo = GeneticAlgorithm(size, 3, bound, gen, [0.6, 0.7, 0.7], c_n, s_n)
+                                result = demo.solve()
+                                final_result.append([demo.best.chrom[0], demo.best.chrom[1], demo.best.chrom[2], demo.trace[-1, 0]])
+                                # print(f"Output result is {result}")
+                                # print(final_result)
+                            final_result = np.array(final_result)
+                            np.savetxt(get_path("tmp\\ " + str(c_n) + "_" + str(s_n) + "adapt_F=" + str(f) +
+                                                str(c_f) + "result.txt"), final_result)
