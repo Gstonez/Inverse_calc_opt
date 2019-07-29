@@ -694,8 +694,8 @@ class GeneticAlgorithm:
 
 if __name__ == '__main__':
     bound = [[0, 1000], [-500, 500], [0, 20000]]
-    maxgen = [1000]
-    popsize = [40]
+    maxgen = [200]
+    popsize = [30]
     for f in range(2, 3):  # DE/rand/1缩放因子
         F_category = f
         for c_f in np.arange(0.6, 1, 0.6):  # DE/rand/1交叉率
@@ -715,4 +715,10 @@ if __name__ == '__main__':
                                 # print(final_result)
                             final_result = np.array(final_result)
                             np.savetxt(get_path("tmp\\ " + str(c_n) + "_" + str(s_n) + "adapt_F=" + str(f) +
-                                                str(c_f) + "result.txt"), final_result)
+                                                str(c_f) + "all_result.txt"), final_result)
+                            minmum = np.min(final_result[:, 3])
+                            maxmum = np.max(final_result[:, 3])
+                            aver = np.mean(final_result[:, 3])
+                            std = np.std(final_result[:, 3])
+                            np.savetxt(get_path("tmp\\ " + str(c_n) + "_" + str(s_n) + "adapt_F=" + str(f) +
+                                                str(c_f) + "result.txt"), [minmum, maxmum, aver, std])
