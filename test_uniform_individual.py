@@ -117,14 +117,26 @@ class GAIndividual:
         self.fitness = 0.
         self.chrom = np.zeros(self.vardim)
 
-    def generate(self):
-        len = self.vardim
-        rnd = np.random.random(size=len)
-        for i in range(len):
-            self.chrom[i] = (self.bound[i][0] +
-                             (self.bound[i][1] -
-                             self.bound[i][0]) *
-                             rnd[i])
+    def generate(self, count='a'):
+        if count == 'a':
+            len = self.vardim
+            rnd = np.random.random(size=len)
+            for i in range(len):
+                self.chrom[i] = (self.bound[i][0] +
+                                 (self.bound[i][1] -
+                                 self.bound[i][0]) *
+                                 rnd[i])
+        else:
+            rnd = np.random.random()
+            # 简单注释                                                              第一维分为几块   第一维分为几块
+            self.chrom[0] = self.bound[0][0] + ((self.bound[0][1] - self.bound[0][0]) / 5) * (count % 5 + rnd)
+            rnd = np.random.random()
+            # 简单注释                                                              第二维分为几块           二维分为几块   第二维分为几块
+            self.chrom[1] = self.bound[1][0] + ((self.bound[1][1] - self.bound[1][0]) / 5)* ((count - (count // 25) * 25) // 5 + rnd)
+            rnd = np.random.random()
+            # 简单注释                                                              第三维分为几块    二维分为几块
+            self.chrom[2] = self.bound[2][0] + ((self.bound[2][1] - self.bound[2][0]) / 4)* (count // 25 + rnd)
+
 
     def calculate_fitness(self):
         self.fitness = 1. / (- likelihood(self.chrom[0], self.chrom[1],
@@ -155,10 +167,14 @@ class GeneticAlgorithm:
 
     def initialize(self):
         """Initialize the individual"""
+        individual_count = 0
+        # individual_count = 'a'
         for _ in range(self.sizepop):
             individual = GAIndividual(self.vardim, self.bound)
-            individual.generate()
+            individual.generate(count=individual_count)
             self.population.append(individual)
+            individual_count += 1
+        individual_count = 0
 
     def evaluate(self):
         """Calculating individual fitness in a population"""
@@ -701,13 +717,13 @@ if __name__ == '__main__':
     bound = [[0, 1000], [-500, 500], [0, 20000]]
     maxgen = [30]
     popsize = [100]
-    for n in range(10, 100, 100):  # 遍历参与竞赛个体数
+    for n in range(2, 100, 10):  # 遍历参与竞赛个体数
         tournament_n = n
-        for m in range(3, tournament_n, 100):  # 遍历获胜（保留）个体数
+        for m in range(1, tournament_n, (n // 9) + 2):  # 遍历获胜（保留）个体数
             tournament_m = m
             for f in range(2, 3):  # DE/rand/1缩放因子
                 F_category = f
-                for c_f in np.arange(0.6, 1, 0.6):  # DE/rand/1交叉率
+                for c_f in np.arange(0.6, 1.1, 0.6):  # DE/rand/1交叉率
                     cross_rate = c_f
                     crossover_list = [5]  # 交叉算子序列表
                     for c_n in crossover_list:  # 遍历交叉算子
@@ -715,7 +731,7 @@ if __name__ == '__main__':
                             for size in popsize:  # 遍历种群规模
                                 for gen in maxgen:  # 遍历迭代次数
                                     final_result = []
-                                    for i in range(10):
+                                    for i in range(20):
                                     # for i in range(5): 
                                         demo = GeneticAlgorithm(size, 3,
                                                                 bound, gen,
